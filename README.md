@@ -67,21 +67,3 @@ mvn spring-boot:run
 ```bash
 mvn test
 ```
-
-## Docker 本地运行
-
-```bash
-docker build -t pdf-convert-demo:latest .
-docker run --rm -p 8080:8080 -e PORT=8080 -v $(pwd)/data:/app/data pdf-convert-demo:latest
-```
-
-## Render 部署（Docker）
-
-本项目已提供 `Dockerfile` + `render.yaml`，可以直接在 Render 创建 **Web Service**：
-
-1. 推送代码到 GitHub。
-2. 在 Render 里选择 **New + > Blueprint**，选择该仓库。
-3. Render 会读取 `render.yaml` 自动创建 Docker Web Service。
-4. 部署后访问 Render 分配的 URL。
-
-> 注意：Render 的磁盘是临时的（ephemeral）。该 demo 的 `./data` 目录中间产物在重启后可能丢失。
