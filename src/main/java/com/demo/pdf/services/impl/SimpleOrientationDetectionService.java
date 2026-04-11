@@ -4,6 +4,7 @@ import com.demo.pdf.helpers.OcrOrientationParser;
 import com.demo.pdf.services.OrientationDetectionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +28,7 @@ public class SimpleOrientationDetectionService implements OrientationDetectionSe
     private final long ocrTimeoutMs;
     private final OcrCommandRunner ocrCommandRunner;
 
+    @Autowired
     public SimpleOrientationDetectionService(
             @Value("${app.ocr.enabled:true}") boolean ocrEnabled,
             @Value("${app.ocr.executable:tesseract}") String ocrExecutable,
