@@ -1,0 +1,19 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 15MB
+
+app:
+  storage:
+    upload-dir: ./data/uploads
+    pages-dir: ./data/pages
+    normalized-dir: ./data/normalized
+    temp-dir: ./data/temp
+  render:
+    dpi: ${RENDER_DPI:120}
+    max-pages: ${RENDER_MAX_PAGES:30}
+    grayscale: true
