@@ -9,8 +9,13 @@ COPY src ./src
 
 RUN mvn -q -DskipTests clean package
 
+
 # ---- Runtime stage ----
 FROM eclipse-temurin:11-jre
+RUN apt-get update && \
+    apt-get install -y tesseract-ocr && \
+    apt-get clean
+    apt-get install -y tesseract-ocr-eng
 WORKDIR /app
 
 ENV JAVA_OPTS="-Xms128m -Xmx384m -XX:+UseSerialGC"
