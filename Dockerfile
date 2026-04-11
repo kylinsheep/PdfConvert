@@ -13,7 +13,7 @@ RUN mvn -q -DskipTests clean package
 FROM eclipse-temurin:11-jre
 WORKDIR /app
 
-ENV JAVA_OPTS="-Xms128m -Xmx384m -XX:+UseSerialGC"
+ENV JAVA_OPTS=""
 ENV PORT=8080
 
 COPY --from=builder /app/target/pdf-convert-demo-0.0.1-SNAPSHOT.jar app.jar

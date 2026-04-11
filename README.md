@@ -67,32 +67,3 @@ mvn spring-boot:run
 ```bash
 mvn test
 ```
-
-## Docker 本地运行
-
-```bash
-docker build -t pdf-convert-demo:latest .
-docker run --rm -p 8080:8080 -e PORT=8080 -v $(pwd)/data:/app/data pdf-convert-demo:latest
-```
-
-## Render 部署（Docker）
-
-本项目已提供 `Dockerfile` + `render.yaml`，可以直接在 Render 创建 **Web Service**：
-
-1. 推送代码到 GitHub。
-2. 在 Render 里选择 **New + > Blueprint**，选择该仓库。
-3. Render 会读取 `render.yaml` 自动创建 Docker Web Service。
-4. 部署后访问 Render 分配的 URL。
-
-> 注意：Render 的磁盘是临时的（ephemeral）。该 demo 的 `./data` 目录中间产物在重启后可能丢失。
-
-## Render 500 / Java heap space 排查
-
-如果调用上传接口报错：`OutOfMemoryError: Java heap space`，可按下面处理：
-
-1. 减小渲染 DPI（默认已调到 120）：设置环境变量 `RENDER_DPI=100` 或更低。
-2. 限制 PDF 页数（默认 30 页）：设置 `RENDER_MAX_PAGES=20`。
-3. 提高 JVM 堆内存：设置 `JAVA_OPTS=-Xms128m -Xmx384m -XX:+UseSerialGC`（或根据套餐上调）。
-4. 上传更小的 PDF（当前接口限制 15MB）。
-
-> 本项目已在 `PdfBoxRenderService` 中启用 `MemoryUsageSetting.setupTempFileOnly()`，尽量用磁盘换内存，降低 OOM 概率。
