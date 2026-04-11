@@ -1,12 +1,13 @@
 package com.demo.pdf.services.impl;
 
 import com.demo.pdf.exceptions.BusinessException;
+import com.demo.pdf.options.RenderProperties;
 import com.demo.pdf.options.StorageProperties;
 import com.demo.pdf.services.PdfRenderService;
+import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
@@ -22,28 +23,38 @@ import java.util.List;
 public class PdfBoxRenderService implements PdfRenderService {
 
     private final StorageProperties storageProperties;
-    private final int dpi;
+    private final RenderProperties renderProperties;
 
     public PdfBoxRenderService(StorageProperties storageProperties,
-                               @Value("${app.render.dpi:200}") int dpi) {
+                               RenderProperties renderProperties) {
         this.storageProperties = storageProperties;
-        this.dpi = dpi;
+        this.renderProperties = renderProperties;
     }
 
     @Override
     public List<String> renderToImages(String taskId, String pdfPath) {
         Path taskDir = Paths.get(storageProperties.getPagesDir(), taskId);
-        try (PDDocument document = PDDocument.load(Paths.get(pdfPath).toFile())) {
+        try (PDDocument document = PDDocument.load(Paths.get(pdfPath).toFile(), MemoryUsageSetting.setupTempFileOnly())) {
+            int pageCount = document.getNumberOfPages();
+            if (pageCount > renderProperties.getMaxPages()) {
+                throw new BusinessException("PDF page count exceeds limit: " + renderProperties.getMaxPages());
+            }
+
             Files.createDirectories(taskDir);
             PDFRenderer renderer = new PDFRenderer(document);
             List<String> outputPaths = new ArrayList<>();
-            for (int i = 0; i < document.getNumberOfPages(); i++) {
-                BufferedImage image = renderer.renderImageWithDPI(i, dpi, ImageType.RGB);
+            ImageType imageType = renderProperties.isGrayscale() ? ImageType.GRAY : ImageType.RGB;
+
+            for (int i = 0; i < pageCount; i++) {
+                BufferedImage image = renderer.renderImageWithDPI(i, renderProperties.getDpi(), imageType);
                 Path pagePath = taskDir.resolve("page-" + (i + 1) + ".png");
                 ImageIO.write(image, "PNG", pagePath.toFile());
+                image.flush();
                 outputPaths.add(pagePath.toAbsolutePath().toString());
             }
             return outputPaths;
+        } catch (OutOfMemoryError oom) {
+            throw new BusinessException("Not enough memory while rendering PDF. Try smaller PDF / lower DPI / fewer pages.");
         } catch (IOException ex) {
             throw new BusinessException("Failed to render PDF pages: " + ex.getMessage());
         }

@@ -1,12 +1,13 @@
 package com.demo.pdf;
 
+import com.demo.pdf.options.RenderProperties;
 import com.demo.pdf.options.StorageProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 @SpringBootApplication
-@EnableConfigurationProperties(StorageProperties.class)
+@EnableConfigurationProperties({StorageProperties.class, RenderProperties.class})
 public class PdfConvertDemoApplication {
 
     public static void main(String[] args) {

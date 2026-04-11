@@ -14,6 +14,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(Result.fail(ex.getMessage()));
     }
 
+
+    @ExceptionHandler(OutOfMemoryError.class)
+    public ResponseEntity<Result<Void>> handleOom(OutOfMemoryError ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Result.fail("Out of memory while processing PDF. Please upload a smaller file or reduce render DPI/pages."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Result<Void>> handleUnknown(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
