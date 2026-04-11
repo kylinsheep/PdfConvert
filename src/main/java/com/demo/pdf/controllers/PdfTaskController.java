@@ -30,7 +30,11 @@ public class PdfTaskController {
     @PostMapping("/upload")
     public Result<UploadResponse> upload(@RequestParam("file") MultipartFile file) {
         TaskResult result = pdfTaskService.process(file);
-        UploadResponse response = new UploadResponse(result.getTaskId(), "./data/uploads/" + result.getTaskId() + ".pdf");
+        UploadResponse response = new UploadResponse(
+                result.getTaskId(),
+                "./data/uploads/" + result.getTaskId() + ".pdf",
+                result.getAngles()
+        );
         return Result.ok(response);
     }
 
