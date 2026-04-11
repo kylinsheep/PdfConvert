@@ -43,7 +43,8 @@ public class PdfTaskServiceImpl implements PdfTaskService {
         if (file == null || file.isEmpty()) {
             throw new BusinessException("Uploaded file is empty.");
         }
-        if (!file.getOriginalFilename().toLowerCase().endsWith(".pdf")) {
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !originalFilename.toLowerCase().endsWith(".pdf")) {
             throw new BusinessException("Only PDF file is supported.");
         }
 

@@ -88,13 +88,15 @@ public class SimpleOrientationDetectionService implements OrientationDetectionSe
         }
     }
 
-    interface OcrCommandRunner {
+    public interface OcrCommandRunner {
         String runOsd(String executable, String language, long timeoutMs, String imagePath) throws IOException;
 
-        String runOcrTsv(String executable, String language, long timeoutMs, String imagePath) throws IOException;
+        default String runOcrTsv(String executable, String language, long timeoutMs, String imagePath) throws IOException {
+            throw new UnsupportedOperationException("OCR TSV not implemented.");
+        }
     }
 
-    static class TesseractOcrCommandRunner implements OcrCommandRunner {
+    public static class TesseractOcrCommandRunner implements OcrCommandRunner {
 
         @Override
         public String runOsd(String executable, String language, long timeoutMs, String imagePath) throws IOException {
@@ -102,10 +104,11 @@ public class SimpleOrientationDetectionService implements OrientationDetectionSe
                     executable,
                     imagePath,
                     "stdout",
-                    "--psm",
-                    "0",
                     "-l",
-                    language
+                    language,
+                    "--psm",
+                    "6",
+                    "tsv"
             );
             processBuilder.redirectErrorStream(true);
 
