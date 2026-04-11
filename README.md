@@ -4,16 +4,14 @@
 
 1. 上传 PDF
 2. PDF 按页转 PNG
-3. 检测每页方向（当前最小版先返回 0）
+3. 检测每页方向（默认调用 Tesseract OSD，失败时单页回退到 0）
 4. 旋转输出标准方向图片
 
 ## 技术选型
 
 - Spring Boot 2.7.x：稳定、Java 11 友好。
 - Apache PDFBox：开源（Apache License 2.0）、轻量、适合做 PDF 转图。
-- 暂未引入 OCR 大依赖：第一版重点先保证端到端流程可运行。
-
-> 后续增强可接入 Tesseract（tess4j）实现真实方向检测。
+- 方向检测通过外部 `tesseract` 命令实现 OSD，不额外引入 JNI OCR 依赖。
 
 ## 项目结构
 
@@ -67,6 +65,15 @@ mvn spring-boot:run
 ```bash
 mvn test
 ```
+
+## OCR 配置（可选）
+
+默认使用系统 `tesseract` 命令，支持通过环境变量覆盖：
+
+- `OCR_ENABLED`：是否启用 OCR（默认 `true`）
+- `OCR_EXECUTABLE`：可执行文件名或绝对路径（默认 `tesseract`）
+- `OCR_LANGUAGE`：OSD 语言包（默认 `osd`）
+- `OCR_TIMEOUT_MS`：单页超时毫秒（默认 `8000`）
 
 ## Docker 本地运行
 

@@ -17,3 +17,8 @@ app:
     dpi: ${RENDER_DPI:120}
     max-pages: ${RENDER_MAX_PAGES:30}
     grayscale: true
+  ocr:
+    enabled: ${OCR_ENABLED:true}
+    executable: ${OCR_EXECUTABLE:tesseract}
+    language: ${OCR_LANGUAGE:osd}
+    timeout-ms: ${OCR_TIMEOUT_MS:8000}
