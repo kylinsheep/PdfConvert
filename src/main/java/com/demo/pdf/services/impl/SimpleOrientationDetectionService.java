@@ -90,9 +90,12 @@ public class SimpleOrientationDetectionService implements OrientationDetectionSe
 
     interface OcrCommandRunner {
         String runOsd(String executable, String language, long timeoutMs, String imagePath) throws IOException;
+
+        String runOcrTsv(String executable, String language, long timeoutMs, String imagePath) throws IOException;
     }
 
     static class TesseractOcrCommandRunner implements OcrCommandRunner {
+
         @Override
         public String runOsd(String executable, String language, long timeoutMs, String imagePath) throws IOException {
             ProcessBuilder processBuilder = new ProcessBuilder(
@@ -119,12 +122,51 @@ public class SimpleOrientationDetectionService implements OrientationDetectionSe
             }
 
             String output;
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 output = reader.lines().collect(Collectors.joining(System.lineSeparator()));
             }
 
             if (process.exitValue() != 0) {
-                throw new IOException("Tesseract OSD exited with code " + process.exitValue() + ".");
+                throw new IOException("Tesseract OSD exited with code " + process.exitValue() + ". Output: " + output);
+            }
+            return output;
+        }
+
+        @Override
+        public String runOcrTsv(String executable, String language, long timeoutMs, String imagePath) throws IOException {
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                    executable,
+                    imagePath,
+                    "stdout",
+                    "-l",
+                    language,
+                    "--psm",
+                    "6",
+                    "tsv"
+            );
+            processBuilder.redirectErrorStream(true);
+
+            Process process = processBuilder.start();
+            try {
+                boolean finished = process.waitFor(timeoutMs, TimeUnit.MILLISECONDS);
+                if (!finished) {
+                    process.destroyForcibly();
+                    throw new IOException("Tesseract OCR TSV timed out.");
+                }
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while waiting Tesseract OCR TSV process.", ex);
+            }
+
+            String output;
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                output = reader.lines().collect(Collectors.joining(System.lineSeparator()));
+            }
+
+            if (process.exitValue() != 0) {
+                throw new IOException("Tesseract OCR TSV exited with code " + process.exitValue() + ". Output: " + output);
             }
             return output;
         }
