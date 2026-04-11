@@ -14,7 +14,7 @@ RUN mvn -q -DskipTests clean package
 FROM eclipse-temurin:11-jre
 RUN apt-get update && \
     apt-get install -y tesseract-ocr && \
-    apt-get clean
+    apt-get clean && \
     apt-get install -y tesseract-ocr-eng
 WORKDIR /app
 
