@@ -42,8 +42,8 @@ public class PageNormalizeServiceImpl implements PageNormalizeService {
                     throw new BusinessException("Cannot read image: " + source);
                 }
 
-                // 假设检测角度表示“当前页面顺时针偏转角度”，因此反向旋转纠正。
-                int correctionAngle = (360 - detectedAngles.get(i)) % 360;
+                // 检测角度表示需要顺时针旋转的角度，直接应用。
+                int correctionAngle = detectedAngles.get(i) % 360;
                 BufferedImage normalized = ImageRotateHelper.rotateClockwise(image, correctionAngle);
 
                 Path out = outputDir.resolve("page-" + (i + 1) + ".png");
