@@ -24,37 +24,63 @@ class MarkerOrientationDetectionServiceTest {
         Assertions.assertEquals(List.of(), service.detectAngles(List.of()));
     }
 
+    // --- RGB (red marker) tests ---
+
     @Test
-    void shouldDetectMarkerAtTopLeft() {
-        BufferedImage image = createImageWithMarkerAt(Corner.TOP_LEFT);
+    void shouldDetectRedMarkerAtTopLeft() {
+        BufferedImage image = createRgbImageWithRedMarkerAt(Corner.TOP_LEFT);
         MarkerOrientationDetectionService service = new MarkerOrientationDetectionService();
         Assertions.assertEquals(0, service.detectMarkerCorner(image));
     }
 
     @Test
-    void shouldDetectMarkerAtBottomLeft() {
-        BufferedImage image = createImageWithMarkerAt(Corner.BOTTOM_LEFT);
+    void shouldDetectRedMarkerAtBottomLeft() {
+        BufferedImage image = createRgbImageWithRedMarkerAt(Corner.BOTTOM_LEFT);
         MarkerOrientationDetectionService service = new MarkerOrientationDetectionService();
         Assertions.assertEquals(90, service.detectMarkerCorner(image));
     }
 
     @Test
-    void shouldDetectMarkerAtTopRight() {
-        BufferedImage image = createImageWithMarkerAt(Corner.TOP_RIGHT);
+    void shouldDetectRedMarkerAtTopRight() {
+        BufferedImage image = createRgbImageWithRedMarkerAt(Corner.TOP_RIGHT);
         MarkerOrientationDetectionService service = new MarkerOrientationDetectionService();
         Assertions.assertEquals(180, service.detectMarkerCorner(image));
     }
 
     @Test
-    void shouldDetectMarkerAtBottomRight() {
-        BufferedImage image = createImageWithMarkerAt(Corner.BOTTOM_RIGHT);
+    void shouldDetectRedMarkerAtBottomRight() {
+        BufferedImage image = createRgbImageWithRedMarkerAt(Corner.BOTTOM_RIGHT);
         MarkerOrientationDetectionService service = new MarkerOrientationDetectionService();
         Assertions.assertEquals(270, service.detectMarkerCorner(image));
     }
 
     @Test
+    void shouldNotConfuseBlackBordersWithRedMarker() {
+        // Image with black table borders near all corners, red marker only at bottom-left
+        int w = 500, h = 700;
+        BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = image.createGraphics();
+
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, w, h);
+
+        // Draw black table borders near edges (simulating a table)
+        g.setColor(Color.BLACK);
+        g.drawRect(20, 20, w - 40, h - 40);  // outer border
+        g.drawLine(20, h / 2, w - 20, h / 2); // horizontal line
+
+        // Red marker at bottom-left corner
+        g.setColor(Color.RED);
+        g.fillRect(0, h - 15, 15, 15);
+
+        g.dispose();
+
+        MarkerOrientationDetectionService service = new MarkerOrientationDetectionService();
+        Assertions.assertEquals(90, service.detectMarkerCorner(image));
+    }
+
+    @Test
     void shouldDefaultToZeroWhenNoMarkerPresent() {
-        // All-white image, no marker
         BufferedImage image = new BufferedImage(500, 700, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = image.createGraphics();
         g.setColor(Color.WHITE);
@@ -67,7 +93,7 @@ class MarkerOrientationDetectionServiceTest {
 
     @Test
     void shouldDetectFromImageFile() throws IOException {
-        BufferedImage image = createImageWithMarkerAt(Corner.BOTTOM_LEFT);
+        BufferedImage image = createRgbImageWithRedMarkerAt(Corner.BOTTOM_LEFT);
         Path imagePath = tempDir.resolve("page-1.png");
         ImageIO.write(image, "PNG", imagePath.toFile());
 
@@ -77,21 +103,62 @@ class MarkerOrientationDetectionServiceTest {
         Assertions.assertEquals(List.of(90), angles);
     }
 
+    // --- Grayscale fallback tests ---
+
+    @Test
+    void shouldDetectDarkMarkerInGrayscaleAtBottomRight() {
+        BufferedImage image = createGrayscaleImageWithMarkerAt(Corner.BOTTOM_RIGHT);
+        MarkerOrientationDetectionService service = new MarkerOrientationDetectionService();
+        Assertions.assertEquals(270, service.detectMarkerCorner(image));
+    }
+
+    @Test
+    void shouldDetectDarkMarkerInGrayscaleAtTopLeft() {
+        BufferedImage image = createGrayscaleImageWithMarkerAt(Corner.TOP_LEFT);
+        MarkerOrientationDetectionService service = new MarkerOrientationDetectionService();
+        Assertions.assertEquals(0, service.detectMarkerCorner(image));
+    }
+
+    // --- Helpers ---
+
     private enum Corner { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
 
-    private BufferedImage createImageWithMarkerAt(Corner corner) {
-        int w = 500;
-        int h = 700;
-        int markerSize = 20;
-
+    private BufferedImage createRgbImageWithRedMarkerAt(Corner corner) {
+        int w = 500, h = 700, markerSize = 15;
         BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = image.createGraphics();
 
-        // White background
         g.setColor(Color.WHITE);
         g.fillRect(0, 0, w, h);
 
-        // Draw dark marker at the specified corner
+        g.setColor(Color.RED);
+        switch (corner) {
+            case TOP_LEFT:
+                g.fillRect(0, 0, markerSize, markerSize);
+                break;
+            case TOP_RIGHT:
+                g.fillRect(w - markerSize, 0, markerSize, markerSize);
+                break;
+            case BOTTOM_LEFT:
+                g.fillRect(0, h - markerSize, markerSize, markerSize);
+                break;
+            case BOTTOM_RIGHT:
+                g.fillRect(w - markerSize, h - markerSize, markerSize, markerSize);
+                break;
+        }
+
+        g.dispose();
+        return image;
+    }
+
+    private BufferedImage createGrayscaleImageWithMarkerAt(Corner corner) {
+        int w = 500, h = 700, markerSize = 10;
+        BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);
+        Graphics2D g = image.createGraphics();
+
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, w, h);
+
         g.setColor(Color.BLACK);
         switch (corner) {
             case TOP_LEFT:

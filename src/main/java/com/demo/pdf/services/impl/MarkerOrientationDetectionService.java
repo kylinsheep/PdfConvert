@@ -15,11 +15,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Detects page orientation by locating a corner marker in the rendered page image.
+ * Detects page orientation by locating a red corner marker in the rendered page image.
  *
- * The marker is a small solid-colored block placed at one of the four corners
- * of the original document. Its position indicates the required clockwise
- * rotation to make the page content upright:
+ * The marker is a small red-colored shape (triangle/block) placed at one of the
+ * four corners of the original document. Its position indicates the required
+ * clockwise rotation to make the page content upright:
  *
  *   Marker at top-left     -> rotate = 0
  *   Marker at bottom-left  -> rotate = 90
@@ -33,16 +33,24 @@ public class MarkerOrientationDetectionService implements OrientationDetectionSe
     private static final Logger LOGGER = LoggerFactory.getLogger(MarkerOrientationDetectionService.class);
 
     /** Fraction of image width/height to scan at each corner. */
-    private static final double CORNER_SCAN_RATIO = 0.04;
+    private static final double CORNER_SCAN_RATIO = 0.05;
 
     /** Minimum corner scan region size in pixels. */
-    private static final int MIN_CORNER_SIZE = 15;
+    private static final int MIN_CORNER_SIZE = 20;
 
-    /** Luminance threshold: pixels with luminance below this are considered "dark". */
-    private static final int DARK_LUMINANCE_THRESHOLD = 180;
+    /**
+     * Minimum red-pixel count in a corner region to consider it as containing a marker.
+     * The marker must have at least this many red pixels.
+     */
+    private static final int MIN_RED_PIXEL_COUNT = 5;
 
-    /** Minimum dark-pixel ratio in a corner region to consider it as containing a marker. */
-    private static final double MIN_DARK_RATIO = 0.08;
+    /**
+     * For grayscale fallback: scan a very small region at the extreme corner tip.
+     * This avoids table borders/text which have margins from the page edge.
+     */
+    private static final double GRAYSCALE_CORNER_RATIO = 0.015;
+    private static final int GRAYSCALE_DARK_THRESHOLD = 160;
+    private static final double GRAYSCALE_MIN_DARK_RATIO = 0.10;
 
     @Override
     public List<Integer> detectAngles(List<String> pageImagePaths) {
@@ -73,36 +81,101 @@ public class MarkerOrientationDetectionService implements OrientationDetectionSe
     }
 
     int detectMarkerCorner(BufferedImage image) {
+        boolean isGrayscale = image.getType() == BufferedImage.TYPE_BYTE_GRAY;
+
+        if (isGrayscale) {
+            return detectByDarkPixels(image);
+        }
+        return detectByRedColor(image);
+    }
+
+    /**
+     * Detect the marker by looking for RED pixels (high R, low G, low B).
+     * This is robust against black table borders, text, and other content.
+     */
+    private int detectByRedColor(BufferedImage image) {
         int w = image.getWidth();
         int h = image.getHeight();
         int cw = Math.max(MIN_CORNER_SIZE, (int) (w * CORNER_SCAN_RATIO));
         int ch = Math.max(MIN_CORNER_SIZE, (int) (h * CORNER_SCAN_RATIO));
 
-        double topLeft = darkPixelRatio(image, 0, 0, cw, ch);
-        double topRight = darkPixelRatio(image, w - cw, 0, cw, ch);
-        double bottomLeft = darkPixelRatio(image, 0, h - ch, cw, ch);
-        double bottomRight = darkPixelRatio(image, w - cw, h - ch, cw, ch);
+        int topLeft = countRedPixels(image, 0, 0, cw, ch);
+        int topRight = countRedPixels(image, w - cw, 0, cw, ch);
+        int bottomLeft = countRedPixels(image, 0, h - ch, cw, ch);
+        int bottomRight = countRedPixels(image, w - cw, h - ch, cw, ch);
 
-        LOGGER.debug("Corner dark-pixel ratios: TL={}, TR={}, BL={}, BR={}",
-                String.format("%.3f", topLeft),
-                String.format("%.3f", topRight),
-                String.format("%.3f", bottomLeft),
-                String.format("%.3f", bottomRight));
+        LOGGER.debug("Corner red-pixel counts: TL={}, TR={}, BL={}, BR={}",
+                topLeft, topRight, bottomLeft, bottomRight);
 
-        // Find the corner with the highest dark-pixel ratio
-        double max = Math.max(Math.max(topLeft, topRight), Math.max(bottomLeft, bottomRight));
+        int max = Math.max(Math.max(topLeft, topRight), Math.max(bottomLeft, bottomRight));
 
-        if (max < MIN_DARK_RATIO) {
-            LOGGER.warn("No corner marker detected (max dark ratio={} < threshold={}), defaulting to 0",
-                    String.format("%.3f", max), MIN_DARK_RATIO);
+        if (max < MIN_RED_PIXEL_COUNT) {
+            LOGGER.warn("No red marker detected (max red count={} < threshold={}), defaulting to 0",
+                    max, MIN_RED_PIXEL_COUNT);
             return 0;
         }
 
         if (max == topLeft) return 0;
         if (max == bottomLeft) return 90;
         if (max == topRight) return 180;
-        // bottomRight
         return 270;
+    }
+
+    /**
+     * Fallback for grayscale images: scan a very small region at the extreme
+     * corner tip where only the marker should exist (not table borders/text).
+     */
+    private int detectByDarkPixels(BufferedImage image) {
+        int w = image.getWidth();
+        int h = image.getHeight();
+        int cw = Math.max(10, (int) (w * GRAYSCALE_CORNER_RATIO));
+        int ch = Math.max(10, (int) (h * GRAYSCALE_CORNER_RATIO));
+
+        double topLeft = darkPixelRatio(image, 0, 0, cw, ch);
+        double topRight = darkPixelRatio(image, w - cw, 0, cw, ch);
+        double bottomLeft = darkPixelRatio(image, 0, h - ch, cw, ch);
+        double bottomRight = darkPixelRatio(image, w - cw, h - ch, cw, ch);
+
+        LOGGER.debug("Grayscale corner dark-pixel ratios: TL={}, TR={}, BL={}, BR={}",
+                String.format("%.3f", topLeft),
+                String.format("%.3f", topRight),
+                String.format("%.3f", bottomLeft),
+                String.format("%.3f", bottomRight));
+
+        double max = Math.max(Math.max(topLeft, topRight), Math.max(bottomLeft, bottomRight));
+
+        if (max < GRAYSCALE_MIN_DARK_RATIO) {
+            LOGGER.warn("No corner marker detected in grayscale (max ratio={} < threshold={}), defaulting to 0",
+                    String.format("%.3f", max), GRAYSCALE_MIN_DARK_RATIO);
+            return 0;
+        }
+
+        if (max == topLeft) return 0;
+        if (max == bottomLeft) return 90;
+        if (max == topRight) return 180;
+        return 270;
+    }
+
+    /**
+     * Count pixels that are "red" in the given region.
+     * A red pixel has: R > 100, (R - G) > 50, (R - B) > 50.
+     * This catches bright red, dark red, and similar hues while ignoring
+     * black (table borders), gray, and white pixels.
+     */
+    private int countRedPixels(BufferedImage image, int startX, int startY, int regionW, int regionH) {
+        int count = 0;
+        for (int y = startY; y < startY + regionH; y++) {
+            for (int x = startX; x < startX + regionW; x++) {
+                int rgb = image.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+                if (r > 100 && (r - g) > 50 && (r - b) > 50) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     private double darkPixelRatio(BufferedImage image, int startX, int startY, int regionW, int regionH) {
@@ -114,7 +187,7 @@ public class MarkerOrientationDetectionService implements OrientationDetectionSe
             for (int x = startX; x < startX + regionW; x++) {
                 int rgb = image.getRGB(x, y);
                 int luminance = luminance(rgb);
-                if (luminance < DARK_LUMINANCE_THRESHOLD) {
+                if (luminance < GRAYSCALE_DARK_THRESHOLD) {
                     darkCount++;
                 }
             }
