@@ -16,7 +16,7 @@ app:
   render:
     dpi: ${RENDER_DPI:120}
     max-pages: ${RENDER_MAX_PAGES:30}
-    grayscale: true
+    grayscale: false
   ocr:
     enabled: ${OCR_ENABLED:true}
     executable: ${OCR_EXECUTABLE:tesseract}
