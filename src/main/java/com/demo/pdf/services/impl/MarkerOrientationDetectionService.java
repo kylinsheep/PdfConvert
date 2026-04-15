@@ -33,10 +33,11 @@ public class MarkerOrientationDetectionService implements OrientationDetectionSe
     private static final Logger LOGGER = LoggerFactory.getLogger(MarkerOrientationDetectionService.class);
 
     /**
-     * Scan a very small region at the extreme corner tip.
-     * This avoids table borders/text which have margins from the page edge.
+     * Scan a small region at the extreme corner tip (2% of each dimension).
+     * At 120 DPI on A4 this is ~20x28 pixels — small enough to avoid table
+     * borders (typical margin > 10mm = 47px) but large enough to capture the marker.
      */
-    private static final double CORNER_SCAN_RATIO = 0.015;
+    private static final double CORNER_SCAN_RATIO = 0.02;
 
     /** Minimum corner scan region size in pixels. */
     private static final int MIN_CORNER_SIZE = 10;
@@ -44,8 +45,12 @@ public class MarkerOrientationDetectionService implements OrientationDetectionSe
     /** Luminance threshold: pixels with luminance below this are considered "dark". */
     private static final int DARK_LUMINANCE_THRESHOLD = 160;
 
-    /** Minimum dark-pixel ratio in a corner region to consider it as containing a marker. */
-    private static final double MIN_DARK_RATIO = 0.10;
+    /**
+     * Minimum dark-pixel ratio to consider a corner as containing a marker.
+     * A small 5px triangle in a ~560px region gives ~4% ratio.
+     * White margin corners have ~0% ratio. Threshold set to 1%.
+     */
+    private static final double MIN_DARK_RATIO = 0.01;
 
     @Override
     public List<Integer> detectAngles(List<String> pageImagePaths) {
@@ -81,34 +86,40 @@ public class MarkerOrientationDetectionService implements OrientationDetectionSe
         int cw = Math.max(MIN_CORNER_SIZE, (int) (w * CORNER_SCAN_RATIO));
         int ch = Math.max(MIN_CORNER_SIZE, (int) (h * CORNER_SCAN_RATIO));
 
-        double topLeft = darkPixelRatio(image, 0, 0, cw, ch);
-        double topRight = darkPixelRatio(image, w - cw, 0, cw, ch);
-        double bottomLeft = darkPixelRatio(image, 0, h - ch, cw, ch);
-        double bottomRight = darkPixelRatio(image, w - cw, h - ch, cw, ch);
+        double[] ratios = {
+            darkPixelRatio(image, 0, 0, cw, ch),           // 0: top-left
+            darkPixelRatio(image, w - cw, 0, cw, ch),      // 1: top-right
+            darkPixelRatio(image, 0, h - ch, cw, ch),      // 2: bottom-left
+            darkPixelRatio(image, w - cw, h - ch, cw, ch)  // 3: bottom-right
+        };
 
-        LOGGER.debug("Corner dark-pixel ratios: TL={}, TR={}, BL={}, BR={}",
-                String.format("%.3f", topLeft),
-                String.format("%.3f", topRight),
-                String.format("%.3f", bottomLeft),
-                String.format("%.3f", bottomRight));
+        LOGGER.info("Corner dark-pixel ratios: TL={}, TR={}, BL={}, BR={}",
+                String.format("%.4f", ratios[0]),
+                String.format("%.4f", ratios[1]),
+                String.format("%.4f", ratios[2]),
+                String.format("%.4f", ratios[3]));
 
-        double max = Math.max(Math.max(topLeft, topRight), Math.max(bottomLeft, bottomRight));
+        // Find corner with the highest dark-pixel ratio
+        int maxIndex = 0;
+        for (int i = 1; i < ratios.length; i++) {
+            if (ratios[i] > ratios[maxIndex]) {
+                maxIndex = i;
+            }
+        }
 
-        if (max < MIN_DARK_RATIO) {
+        if (ratios[maxIndex] < MIN_DARK_RATIO) {
             LOGGER.warn("No corner marker detected (max dark ratio={} < threshold={}), defaulting to 0",
-                    String.format("%.3f", max), MIN_DARK_RATIO);
+                    String.format("%.4f", ratios[maxIndex]), MIN_DARK_RATIO);
             return 0;
         }
 
         // Marker position -> rotation angle mapping:
-        //   右上角 (top-right)    -> 0
-        //   左上角 (top-left)     -> 90
-        //   左下角 (bottom-left)  -> 180
-        //   右下角 (bottom-right) -> 270
-        if (max == topRight) return 0;
-        if (max == topLeft) return 90;
-        if (max == bottomLeft) return 180;
-        return 270;
+        //   0: top-left     -> 90
+        //   1: top-right    -> 0
+        //   2: bottom-left  -> 180
+        //   3: bottom-right -> 270
+        int[] angleMap = {90, 0, 180, 270};
+        return angleMap[maxIndex];
     }
 
     private double darkPixelRatio(BufferedImage image, int startX, int startY, int regionW, int regionH) {
