@@ -65,6 +65,26 @@ class MarkerOrientationDetectionServiceTest {
     }
 
     @Test
+    void shouldDetectSmallTriangleMarker() {
+        // Simulate a very small triangle marker (6 pixels) — realistic size
+        int w = 500, h = 700;
+        BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);
+        Graphics2D g = image.createGraphics();
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, w, h);
+
+        // Small 6px triangle at bottom-left
+        g.setColor(Color.BLACK);
+        int[] xPoints = {0, 6, 0};
+        int[] yPoints = {h - 6, h, h};
+        g.fillPolygon(xPoints, yPoints, 3);
+        g.dispose();
+
+        MarkerOrientationDetectionService service = new MarkerOrientationDetectionService();
+        Assertions.assertEquals(180, service.detectMarkerCorner(image));
+    }
+
+    @Test
     void shouldDetectFromImageFile() throws IOException {
         BufferedImage image = createImageWithMarkerAt(Corner.BOTTOM_LEFT);
         Path imagePath = tempDir.resolve("page-1.png");
@@ -79,7 +99,7 @@ class MarkerOrientationDetectionServiceTest {
     private enum Corner { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
 
     private BufferedImage createImageWithMarkerAt(Corner corner) {
-        int w = 500, h = 700, markerSize = 10;
+        int w = 500, h = 700, markerSize = 8;
         BufferedImage image = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);
         Graphics2D g = image.createGraphics();
 
